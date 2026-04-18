@@ -1,0 +1,80 @@
+/* Определение переменных для светлой темы */
+:root {
+  --primary-bg-color: #f5f7fa;
+  --secondary-bg-color: #ffffff;
+  --primary-text-color: #1a1a2e;
+  --secondary-text-color: #6c757d;
+  --primary-color: #6e47c2;
+  --secondary-color: #8b5cf6;
+  --border-color: #e8edf2;
+  --accent-soft: #fff5f0;
+}
+
+/* Определение переменных для тёмной темы */
+[data-theme='dark'] {
+  --primary-bg-color: #121212;
+  --secondary-bg-color: #1e1e2e;
+  --primary-text-color: #ffffff;
+  --secondary-text-color: #b0bec5;
+  --primary-color: #6e47c2;
+  --secondary-color: #8b5cf6;
+  --border-color: #2c2c3e;
+  --accent-soft: #2a1a10;
+}
+
+/* Основные стили */
+body {
+  background-color: var(--primary-bg-color);
+  color: var(--primary-text-color);
+  font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+/* Применение фоновых стилей ко всем страницам */
+.page {
+  background-color: var(--primary-bg-color);
+  color: var(--primary-text-color);
+  min-height: 100vh;
+}
+
+/* Ссылки */
+a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--secondary-color);
+}
+
+/* Примеры стилей для компонентов */
+.header {
+  background-color: var(--secondary-bg-color);
+  color: var(--primary-text-color);
+  padding: 10px;
+}
+
+.card {
+  background-color: var(--secondary-bg-color);
+  color: var(--primary-text-color);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.button {
+  background: linear-gradient(135deg, #6e47c2, #8b5cf6);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 30px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
+}

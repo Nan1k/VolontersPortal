@@ -1,0 +1,88 @@
+/* Navbar.css - Фиолетовая тема */
+
+.nav-wrapper {
+  padding: 0 24px !important;
+  min-height: 70px !important;
+  overflow: hidden;
+  position: sticky;
+  top: 0;
+  z-index: 1100;
+  transition: all 0.3s ease-in-out;
+}
+
+/* Логотип */
+.brand-logo {
+  display: flex;
+  align-items: center;
+  height: 70px !important;
+  line-height: 70px !important;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.2s ease;
+}
+
+.brand-logo:hover {
+  transform: scale(1.02);
+}
+
+.logo-image {
+  height: 44px;
+  width: auto;
+  transition: all 0.3s ease;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+/* Название бренда */
+.brand-name {
+  flex-grow: 1;
+  text-align: left;
+  line-height: 70px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.5px;
+  margin-left: 12px !important;
+}
+
+/* Адаптивность */
+@media (max-width: 900px) {
+  .nav-wrapper {
+    padding: 0 16px !important;
+    min-height: 60px !important;
+  }
+  .brand-logo {
+    height: 60px !important;
+    line-height: 60px !important;
+  }
+  .logo-image {
+    height: 36px;
+  }
+  .brand-name {
+    line-height: 60px !important;
+    font-size: 0.9rem !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .nav-wrapper {
+    padding: 0 12px !important;
+    min-height: 56px !important;
+  }
+  .brand-logo {
+    height: 56px !important;
+    line-height: 56px !important;
+  }
+  .logo-image {
+    height: 32px;
+  }
+  .brand-name {
+    display: none;
+  }
+}
+
+/* Тултипы */
+.MuiTooltip-tooltip {
+  background-color: #1a1a2e !important;
+  color: white !important;
+  font-size: 0.75rem !important;
+  border-radius: 8px !important;
+  padding: 6px 12px !important;
+}

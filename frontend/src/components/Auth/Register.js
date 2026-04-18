@@ -1,0 +1,363 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Snackbar, Alert } from '@mui/material';
+import './Register.css';
+import VolunteerActivismIcon from '@mui/icons-material/VolunteerActivism';
+import PersonIcon from '@mui/icons-material/Person';
+import EmailIcon from '@mui/icons-material/Email';
+import LockIcon from '@mui/icons-material/Lock';
+import PhoneIcon from '@mui/icons-material/Phone';
+import LocationCityIcon from '@mui/icons-material/LocationCity';
+import PublicIcon from '@mui/icons-material/Public';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+
+const apiBaseUrl = process.env.REACT_APP_API_BASE_URL;
+
+// Кастомный компонент поля ввода
+const CustomInput = ({ label, type, value, onChange, name, icon: Icon, error, placeholder, required = false }) => {
+  const [isFocused, setIsFocused] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const isPassword = type === 'password';
+
+  return (
+    <div className="custom-input-wrapper">
+      <label className="custom-input-label">
+        {label} {required && <span style={{ color: '#ef4444' }}>*</span>}
+      </label>
+      <div className={`custom-input-field ${isFocused ? 'focused' : ''}`}>
+        {Icon && (
+          <div className="custom-input-icon">
+            <Icon sx={{ fontSize: 20 }} />
+          </div>
+        )}
+        <input
+          type={isPassword && showPassword ? 'text' : type}
+          name={name}
+          value={value}
+          onChange={onChange}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          className="custom-input"
+          placeholder={placeholder || `Введите ${label.toLowerCase()}`}
+        />
+        {isPassword && (
+          <div 
+            className="custom-input-icon" 
+            style={{ cursor: 'pointer', paddingRight: '14px' }}
+            onClick={() => setShowPassword(!showPassword)}
+          >
+            {showPassword ? <VisibilityOffIcon sx={{ fontSize: 20 }} /> : <VisibilityIcon sx={{ fontSize: 20 }} />}
+          </div>
+        )}
+      </div>
+      {error && <div className="input-error">{error}</div>}
+    </div>
+  );
+};
+
+// Кастомный компонент выпадающего списка
+const CustomSelect = ({ label, value, onChange, options, icon: Icon, disabled, error, placeholder }) => {
+  const [isFocused, setIsFocused] = useState(false);
+
+  return (
+    <div className="custom-input-wrapper">
+      <label className="custom-input-label">{label}</label>
+      <div className={`custom-input-field ${isFocused ? 'focused' : ''}`}>
+        {Icon && (
+          <div className="custom-input-icon">
+            <Icon sx={{ fontSize: 20 }} />
+          </div>
+        )}
+        <select
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          className="custom-select"
+        >
+          <option value="" disabled>{placeholder || 'Выберите...'}</option>
+          {options.map(option => (
+            <option key={option.id} value={option.id}>
+              {option.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      {error && <div className="input-error">{error}</div>}
+    </div>
+  );
+};
+
+function Register() {
+  const [formData, setFormData] = useState({
+    username: '', // email
+    hashed_password: '',
+    user_surname: '',
+    user_name: '',
+    user_patronymic: '',
+    age: '',
+    country: '',
+    city: '',
+  });
+  const [countries, setCountries] = useState([]);
+  const [cities, setCities] = useState([]);
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [openSnackbar, setOpenSnackbar] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState('success');
+
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetch(`${apiBaseUrl}/countries/`)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Ошибка HTTP ' + response.status);
+        }
+        return response.json();
+      })
+      .then(data => setCountries(data.map(c => ({ id: c.country_id, name: c.country_name }))))
+      .catch(error => console.error('Ошибка при загрузке стран:', error));
+  }, []);
+
+  const handleCountryChange = (e) => {
+    const selectedCountry = e.target.value;
+    setFormData(prev => ({ ...prev, country: selectedCountry, city: '' }));
+
+    // Загрузка списка городов для выбранной страны
+    fetch(`${apiBaseUrl}/cities/${selectedCountry}`)
+      .then(response => response.json())
+      .then(data => setCities(data.map(c => ({ id: c.city_id, name: c.city_name }))))
+      .catch(error => console.error('Ошибка при загрузке городов:', error));
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    // Очищаем ошибку поля при вводе
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!formData.username) {
+      newErrors.username = 'Введите email';
+    } else if (!/\S+@\S+\.\S+/.test(formData.username)) {
+      newErrors.username = 'Введите корректный email';
+    }
+    
+    if (!formData.hashed_password) {
+      newErrors.hashed_password = 'Введите пароль';
+    } else if (formData.hashed_password.length < 6) {
+      newErrors.hashed_password = 'Пароль должен содержать минимум 6 символов';
+    }
+    
+    if (!formData.user_surname) newErrors.user_surname = 'Введите фамилию';
+    if (!formData.user_name) newErrors.user_name = 'Введите имя';
+    if (!formData.user_patronymic) newErrors.user_patronymic = 'Введите отчество';
+    
+    if (!formData.age) {
+      newErrors.age = 'Введите возраст';
+    } else if (formData.age < 14 || formData.age > 120) {
+      newErrors.age = 'Возраст должен быть от 14 до 120 лет';
+    }
+    
+    if (!formData.country) newErrors.country = 'Выберите страну';
+    if (!formData.city) newErrors.city = 'Выберите город';
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (!validateForm()) return;
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: formData.username,
+          hashed_password: formData.hashed_password,
+          user_surname: formData.user_surname,
+          user_name: formData.user_name,
+          user_patronymic: formData.user_patronymic,
+          age: formData.age,
+          country: formData.country,
+          city: formData.city,
+        }),
+      });
+
+      setLoading(false);
+      if (response.ok) {
+        setSnackbarSeverity('success');
+        setSnackbarMessage('На вашу электронную почту было отправлено письмо для подтверждения.');
+        setOpenSnackbar(true);
+        setTimeout(() => {
+          navigate('/login');
+        }, 5000);
+      } else {
+        const errorData = await response.json();
+        setSnackbarSeverity('error');
+        setSnackbarMessage(errorData.detail || 'Ошибка при регистрации!');
+        setOpenSnackbar(true);
+      }
+    } catch (error) {
+      setLoading(false);
+      setSnackbarSeverity('error');
+      setSnackbarMessage('Произошла ошибка. Попробуйте позже.');
+      setOpenSnackbar(true);
+    }
+  };
+
+  const handleCloseSnackbar = () => {
+    setOpenSnackbar(false);
+  };
+
+  return (
+    <div className="register-container">
+      <div className="card-container">
+        <div className="register-card">
+          <div className="register-icon">
+            <VolunteerActivismIcon sx={{ fontSize: 48, color: '#6e47c2' }} />
+          </div>
+          <h1 className="register-title">Регистрация</h1>
+          <p className="register-subtitle">Создайте аккаунт, чтобы присоединиться к сообществу волонтёров</p>
+
+          <form onSubmit={handleSubmit}>
+            <CustomInput
+              label="Электронная почта"
+              type="email"
+              name="username"
+              value={formData.username}
+              onChange={handleChange}
+              icon={EmailIcon}
+              placeholder="example@mail.ru"
+              error={errors.username}
+              required
+            />
+
+            <CustomInput
+              label="Пароль"
+              type="password"
+              name="hashed_password"
+              value={formData.hashed_password}
+              onChange={handleChange}
+              icon={LockIcon}
+              placeholder="Минимум 6 символов"
+              error={errors.hashed_password}
+              required
+            />
+
+            <CustomInput
+              label="Фамилия"
+              type="text"
+              name="user_surname"
+              value={formData.user_surname}
+              onChange={handleChange}
+              icon={PersonIcon}
+              placeholder="Введите фамилию"
+              error={errors.user_surname}
+              required
+            />
+
+            <CustomInput
+              label="Имя"
+              type="text"
+              name="user_name"
+              value={formData.user_name}
+              onChange={handleChange}
+              icon={PersonIcon}
+              placeholder="Введите имя"
+              error={errors.user_name}
+              required
+            />
+
+            <CustomInput
+              label="Отчество"
+              type="text"
+              name="user_patronymic"
+              value={formData.user_patronymic}
+              onChange={handleChange}
+              icon={PersonIcon}
+              placeholder="Введите отчество"
+              error={errors.user_patronymic}
+              required
+            />
+
+            <CustomInput
+              label="Возраст"
+              type="number"
+              name="age"
+              value={formData.age}
+              onChange={handleChange}
+              icon={CalendarTodayIcon}
+              placeholder="От 14 до 120 лет"
+              error={errors.age}
+              required
+            />
+
+            <CustomSelect
+              label="Страна"
+              value={formData.country}
+              onChange={handleCountryChange}
+              options={countries}
+              icon={PublicIcon}
+              error={errors.country}
+              placeholder="Выберите вашу страну"
+            />
+
+            <CustomSelect
+              label="Город"
+              value={formData.city}
+              onChange={(e) => handleChange({ target: { name: 'city', value: e.target.value } })}
+              options={cities}
+              icon={LocationCityIcon}
+              disabled={!formData.country}
+              error={errors.city}
+              placeholder="Выберите ваш город"
+            />
+
+            <button 
+              type="submit" 
+              className="register-button"
+              disabled={loading}
+            >
+              {loading ? 'Регистрация...' : 'Зарегистрироваться'}
+            </button>
+          </form>
+
+          <div className="divider">или</div>
+
+          <div className="auth-link">
+            Уже есть аккаунт? <Link to="/login">Войти</Link>
+          </div>
+        </div>
+      </div>
+
+      <Snackbar
+        open={openSnackbar}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbarSeverity} sx={{ borderRadius: 2 }}>
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
+    </div>
+  );
+}
+
+export default Register;

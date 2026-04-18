@@ -12,8 +12,7 @@ import EventCard from '../components/EventCards/EventCard';
 import EventMap from '../components/Map/EventMap';
 import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
-
-const apiBaseUrl = process.env.REACT_APP_API_BASE_URL;
+import { API_BASE_URL } from '../config';
 
 function EventDetails() {
   const { id } = useParams();
@@ -42,7 +41,7 @@ function EventDetails() {
   useEffect(() => {
     const fetchEventDetails = async () => {
       try {
-        const response = await axios.get(`${apiBaseUrl}/events/${id}/`);
+        const response = await axios.get(`${API_BASE_URL}/events/${id}/`);
         setEvent(response.data);
         setLoading(false);
       } catch (error) {
@@ -53,7 +52,7 @@ function EventDetails() {
 
     const fetchRecommendedEvents = async () => {
       try {
-        const response = await axios.get(`${apiBaseUrl}/events/`);
+        const response = await axios.get(`${API_BASE_URL}/events/`);
         const eventData = response.data.map(event => ({
           id: event.event_id,
           name: event.event_name,
@@ -85,7 +84,7 @@ function EventDetails() {
   const handleRegister = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await axios.post(`${apiBaseUrl}/event-register/`, {
+      const response = await axios.post(`${API_BASE_URL}/event-register/`, {
         event_id: event.event_id,
       }, {
         headers: {

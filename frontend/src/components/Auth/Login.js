@@ -8,8 +8,7 @@ import EmailIcon from '@mui/icons-material/Email';
 import LockIcon from '@mui/icons-material/Lock';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-
-const apiBaseUrl = process.env.REACT_APP_API_BASE_URL;
+import { API_BASE_URL } from '../../config';
 
 // Кастомный компонент поля ввода
 const CustomInput = ({ label, type, value, onChange, name, icon: Icon, error, placeholder }) => {
@@ -81,7 +80,7 @@ function Login() {
     formDetails.append('password', password);
 
     try {
-      const response = await fetch(`${apiBaseUrl}/token`, {
+      const response = await fetch(`${API_BASE_URL}/token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',

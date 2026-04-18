@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const apiBaseUrl = process.env.REACT_APP_API_BASE_URL;
+import { API_BASE_URL } from '../config';
 
 function ProtectedPage() {
   const navigate = useNavigate();
@@ -18,7 +18,7 @@ function ProtectedPage() {
       }
 
       try {
-        const response = await fetch(`${apiBaseUrl}/protected`, {
+        const response = await fetch(`${API_BASE_URL}/protected`, {
           headers: {
             'Authorization': `Bearer ${storedToken}`,
           },

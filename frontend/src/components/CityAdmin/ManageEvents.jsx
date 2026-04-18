@@ -22,7 +22,12 @@ import {
   Fade,
   Grow,
   IconButton,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
+import Autocomplete from '@mui/material/Autocomplete';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
@@ -32,8 +37,7 @@ import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import EditIcon from '@mui/icons-material/Edit';
 import axios from 'axios';
 import EventMapCreate from '../Map/EventMapCreate.jsx';
-
-const apiBaseUrl = process.env.REACT_APP_API_BASE_URL;
+import { API_BASE_URL } from '../../config';
 
 const ManageEvents = () => {
   const theme = useTheme();
@@ -77,11 +81,27 @@ const ManageEvents = () => {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [formRef, setFormRef] = useState({ categories: [], reward_suggestions: [] });
+
+  useEffect(() => {
+    const loadFormRef = async () => {
+      try {
+        const { data } = await axios.get(`${API_BASE_URL}/event-form-reference/`);
+        setFormRef({
+          categories: data.categories || [],
+          reward_suggestions: data.reward_suggestions || [],
+        });
+      } catch (e) {
+        console.error('Справочники формы:', e.response?.data || e.message);
+      }
+    };
+    loadFormRef();
+  }, []);
 
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const response = await axios.get(`${apiBaseUrl}/events/`, {
+        const response = await axios.get(`${API_BASE_URL}/events/`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`
           }
@@ -110,29 +130,60 @@ const ManageEvents = () => {
     }
   };
 
+  const formatApiError = (error) => {
+    const d = error.response?.data?.detail;
+    if (Array.isArray(d)) {
+      return d.map((x) => (typeof x === 'object' && x.msg ? x.msg : JSON.stringify(x))).join('; ');
+    }
+    if (typeof d === 'string') return d;
+    if (d && typeof d === 'object') return JSON.stringify(d);
+    return error.message || 'Неизвестная ошибка';
+  };
+
   const handleCreateEvent = async (e) => {
     e.preventDefault();
+    if (!newEvent.category?.trim()) {
+      setSnackbar({ open: true, message: 'Выберите или укажите категорию', severity: 'error' });
+      return;
+    }
+    if (!newEvent.startDate || !newEvent.endDate) {
+      setSnackbar({ open: true, message: 'Укажите даты начала и окончания', severity: 'error' });
+      return;
+    }
+    const lat =
+      newEvent.latitude === '' || newEvent.latitude == null ? NaN : Number(newEvent.latitude);
+    const lng =
+      newEvent.longitude === '' || newEvent.longitude == null ? NaN : Number(newEvent.longitude);
+    if (Number.isNaN(lat) || Number.isNaN(lng)) {
+      setSnackbar({
+        open: true,
+        message: 'Кликните по карте, чтобы выбрать место проведения мероприятия',
+        severity: 'error',
+      });
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${apiBaseUrl}/events/`, {
-        event_name: newEvent.name,
-        short_description: newEvent.shortDescription,
-        full_description: newEvent.fullDescription,
+      await axios.post(`${API_BASE_URL}/events/`, {
+        event_name: (newEvent.name || '').trim(),
+        short_description: (newEvent.shortDescription || '').trim(),
+        full_description: (newEvent.fullDescription || '').trim(),
         start_date: newEvent.startDate,
         end_date: newEvent.endDate,
-        category_name: newEvent.category,
-        required_volunteers: newEvent.requiredPeople,
-        participation_points: newEvent.points,
-        rewards: newEvent.awards,
-        image: newEvent.image,
-        latitude: newEvent.latitude,
-        longitude: newEvent.longitude
+        category_name: newEvent.category.trim(),
+        required_volunteers: Number(newEvent.requiredPeople) || 0,
+        participation_points: Number(newEvent.points) || 0,
+        rewards: (newEvent.awards || '').trim(),
+        image: newEvent.image || '',
+        latitude: lat,
+        longitude: lng,
       }, {
         headers: {
           Authorization: `Bearer ${token}`
         }
       });
-      const response = await axios.get(`${apiBaseUrl}/events/`);
+      const response = await axios.get(`${API_BASE_URL}/events/`);
       setEvents(response.data);
       setNewEvent({
         name: '',
@@ -150,9 +201,14 @@ const ManageEvents = () => {
       });
       setImagePreview('');
       setSnackbar({ open: true, message: 'Мероприятие успешно создано!', severity: 'success' });
+      window.dispatchEvent(new Event('volonters-events-changed'));
     } catch (error) {
       console.error('Ошибка при создании мероприятия:', error.response?.data || error.message);
-      setSnackbar({ open: true, message: 'Ошибка при создании мероприятия', severity: 'error' });
+      setSnackbar({
+        open: true,
+        message: formatApiError(error) || 'Ошибка при создании мероприятия',
+        severity: 'error',
+      });
     }
   };
 
@@ -172,13 +228,14 @@ const ManageEvents = () => {
   const handleDeleteEvent = async () => {
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`${apiBaseUrl}/events/${selectedEventId}`, {
+      await axios.delete(`${API_BASE_URL}/events/${selectedEventId}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
       });
       setEvents((prev) => prev.filter((event) => event.event_id !== selectedEventId));
       setSnackbar({ open: true, message: 'Мероприятие удалено', severity: 'success' });
+      window.dispatchEvent(new Event('volonters-events-changed'));
     } catch (error) {
       console.error('Ошибка при удалении мероприятия:', error.response?.data || error.message);
       setSnackbar({ open: true, message: 'Ошибка при удалении мероприятия', severity: 'error' });
@@ -352,22 +409,30 @@ const ManageEvents = () => {
                   </Grid>
                 </Grid>
 
-                <TextField
-                  fullWidth
-                  label="Награды"
-                  name="awards"
-                  value={newEvent.awards}
-                  onChange={handleChange}
-                  sx={{
-                    mb: 2,
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 2,
-                      '& fieldset': { borderColor: palette.border },
-                      '&:hover fieldset': { borderColor: palette.accent },
-                      '&.Mui-focused fieldset': { borderColor: palette.accent, borderWidth: 2 },
-                    },
-                    '& .MuiInputLabel-root.Mui-focused': { color: palette.accent },
+                <Autocomplete
+                  freeSolo
+                  options={formRef.reward_suggestions}
+                  inputValue={newEvent.awards}
+                  onInputChange={(_, value) => setNewEvent((prev) => ({ ...prev, awards: value }))}
+                  onChange={(_, value) => {
+                    if (value != null) setNewEvent((prev) => ({ ...prev, awards: String(value) }));
                   }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Награды"
+                      sx={{
+                        mb: 2,
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: 2,
+                          '& fieldset': { borderColor: palette.border },
+                          '&:hover fieldset': { borderColor: palette.accent },
+                          '&.Mui-focused fieldset': { borderColor: palette.accent, borderWidth: 2 },
+                        },
+                        '& .MuiInputLabel-root.Mui-focused': { color: palette.accent },
+                      }}
+                    />
+                  )}
                 />
 
                 <Grid container spacing={2}>
@@ -415,23 +480,47 @@ const ManageEvents = () => {
                   </Grid>
                 </Grid>
 
-                <TextField
-                  fullWidth
-                  label="Категория"
-                  name="category"
-                  value={newEvent.category}
-                  onChange={handleChange}
-                  sx={{
-                    mb: 2,
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 2,
-                      '& fieldset': { borderColor: palette.border },
-                      '&:hover fieldset': { borderColor: palette.accent },
-                      '&.Mui-focused fieldset': { borderColor: palette.accent, borderWidth: 2 },
-                    },
-                    '& .MuiInputLabel-root.Mui-focused': { color: palette.accent },
-                  }}
-                />
+                {formRef.categories.length > 0 ? (
+                  <FormControl fullWidth sx={{ mb: 2 }} required>
+                    <InputLabel id="manage-event-category">Категория</InputLabel>
+                    <Select
+                      labelId="manage-event-category"
+                      label="Категория"
+                      name="category"
+                      value={newEvent.category}
+                      onChange={handleChange}
+                    >
+                      <MenuItem value="">
+                        <em>Выберите категорию</em>
+                      </MenuItem>
+                      {formRef.categories.map((c) => (
+                        <MenuItem key={c.category_id} value={c.category_name}>
+                          {c.category_name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                ) : (
+                  <TextField
+                    fullWidth
+                    label="Категория"
+                    name="category"
+                    value={newEvent.category}
+                    onChange={handleChange}
+                    required
+                    helperText="Справочник категорий не загрузился — введите название вручную"
+                    sx={{
+                      mb: 2,
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 2,
+                        '& fieldset': { borderColor: palette.border },
+                        '&:hover fieldset': { borderColor: palette.accent },
+                        '&.Mui-focused fieldset': { borderColor: palette.accent, borderWidth: 2 },
+                      },
+                      '& .MuiInputLabel-root.Mui-focused': { color: palette.accent },
+                    }}
+                  />
+                )}
 
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" sx={{ mb: 1, color: palette.textPrimary, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -470,7 +559,7 @@ const ManageEvents = () => {
                   }}
                   startIcon={<AddPhotoAlternateIcon />}
                 >
-                  Загрузить изображение
+                  Загрузить изображение (необязательно)
                   <input type="file" hidden accept="image/*" onChange={handleImageChange} />
                 </Button>
 
@@ -564,9 +653,12 @@ const ManageEvents = () => {
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                         <EmojiEventsIcon sx={{ color: palette.accent, fontSize: 16 }} />
                         <Typography variant="body2" sx={{ color: palette.textSecondary }}>
-                          Баллы: {event.participation_points || 'Не указано'}
+                          Баллы: {event.participation_points ?? '—'}
                         </Typography>
                       </Box>
+                      <Typography variant="body2" sx={{ color: palette.textSecondary, mb: 1 }}>
+                        Награды: {event.rewards?.trim() ? event.rewards : '—'}
+                      </Typography>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <EventIcon sx={{ color: palette.accent, fontSize: 16 }} />
                         <Typography variant="body2" sx={{ color: palette.textSecondary }}>

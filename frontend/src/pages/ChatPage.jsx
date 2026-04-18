@@ -9,7 +9,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import ChatIcon from '@mui/icons-material/Chat';
 import './ChatPage.css';
 
-const apiBaseUrl = process.env.REACT_APP_API_BASE_URL;
+import { API_BASE_URL } from '../config';
 const token = localStorage.getItem('token');
 
 const ChatPage = ({ socket }) => {
@@ -38,7 +38,7 @@ const ChatPage = ({ socket }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetch(`${apiBaseUrl}/profile`, {
+    fetch(`${API_BASE_URL}/profile`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       }
@@ -96,7 +96,7 @@ const ChatPage = ({ socket }) => {
   }, [currentChatPartnerId]);
 
   useEffect(() => {
-    fetch(`${apiBaseUrl}/chat-users`, {
+    fetch(`${API_BASE_URL}/chat-users`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       }
@@ -108,7 +108,7 @@ const ChatPage = ({ socket }) => {
 
   useEffect(() => {
     if (recipientId) {
-      fetch(`${apiBaseUrl}/chat/history/${recipientId}`, {
+      fetch(`${API_BASE_URL}/chat/history/${recipientId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         }

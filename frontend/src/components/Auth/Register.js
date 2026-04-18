@@ -1,19 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Snackbar, Alert } from '@mui/material';
+import {
+  Snackbar,
+  Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  FormHelperText,
+} from '@mui/material';
 import './Register.css';
 import VolunteerActivismIcon from '@mui/icons-material/VolunteerActivism';
 import PersonIcon from '@mui/icons-material/Person';
 import EmailIcon from '@mui/icons-material/Email';
 import LockIcon from '@mui/icons-material/Lock';
-import PhoneIcon from '@mui/icons-material/Phone';
-import LocationCityIcon from '@mui/icons-material/LocationCity';
-import PublicIcon from '@mui/icons-material/Public';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-
-const apiBaseUrl = process.env.REACT_APP_API_BASE_URL;
+import { API_BASE_URL } from '../../config';
 
 // Кастомный компонент поля ввода
 const CustomInput = ({ label, type, value, onChange, name, icon: Icon, error, placeholder, required = false }) => {
@@ -57,40 +61,6 @@ const CustomInput = ({ label, type, value, onChange, name, icon: Icon, error, pl
   );
 };
 
-// Кастомный компонент выпадающего списка
-const CustomSelect = ({ label, value, onChange, options, icon: Icon, disabled, error, placeholder }) => {
-  const [isFocused, setIsFocused] = useState(false);
-
-  return (
-    <div className="custom-input-wrapper">
-      <label className="custom-input-label">{label}</label>
-      <div className={`custom-input-field ${isFocused ? 'focused' : ''}`}>
-        {Icon && (
-          <div className="custom-input-icon">
-            <Icon sx={{ fontSize: 20 }} />
-          </div>
-        )}
-        <select
-          value={value}
-          onChange={onChange}
-          disabled={disabled}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          className="custom-select"
-        >
-          <option value="" disabled>{placeholder || 'Выберите...'}</option>
-          {options.map(option => (
-            <option key={option.id} value={option.id}>
-              {option.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      {error && <div className="input-error">{error}</div>}
-    </div>
-  );
-};
-
 function Register() {
   const [formData, setFormData] = useState({
     username: '', // email
@@ -104,6 +74,7 @@ function Register() {
   });
   const [countries, setCountries] = useState([]);
   const [cities, setCities] = useState([]);
+  const [countriesLoading, setCountriesLoading] = useState(true);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [openSnackbar, setOpenSnackbar] = useState(false);
@@ -113,26 +84,52 @@ function Register() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetch(`${apiBaseUrl}/countries/`)
+    setCountriesLoading(true);
+    fetch(`${API_BASE_URL}/countries/`)
       .then(response => {
         if (!response.ok) {
           throw new Error('Ошибка HTTP ' + response.status);
         }
         return response.json();
       })
-      .then(data => setCountries(data.map(c => ({ id: c.country_id, name: c.country_name }))))
-      .catch(error => console.error('Ошибка при загрузке стран:', error));
+      .then(data => {
+        const rows = Array.isArray(data)
+          ? data.map((c) => ({ id: c.country_id, name: c.country_name }))
+          : [];
+        setCountries(rows);
+      })
+      .catch(error => {
+        console.error('Ошибка при загрузке стран:', error);
+        setSnackbarSeverity('error');
+        setSnackbarMessage(
+          `Не удалось загрузить страны (${API_BASE_URL}). Запущен ли бэкенд?`
+        );
+        setOpenSnackbar(true);
+      })
+      .finally(() => setCountriesLoading(false));
   }, []);
 
   const handleCountryChange = (e) => {
     const selectedCountry = e.target.value;
     setFormData(prev => ({ ...prev, country: selectedCountry, city: '' }));
+    if (!selectedCountry) {
+      setCities([]);
+      return;
+    }
 
-    // Загрузка списка городов для выбранной страны
-    fetch(`${apiBaseUrl}/cities/${selectedCountry}`)
-      .then(response => response.json())
+    fetch(`${API_BASE_URL}/cities/${selectedCountry}`)
+      .then(response => {
+        if (!response.ok) throw new Error('Ошибка HTTP ' + response.status);
+        return response.json();
+      })
       .then(data => setCities(data.map(c => ({ id: c.city_id, name: c.city_name }))))
-      .catch(error => console.error('Ошибка при загрузке городов:', error));
+      .catch(error => {
+        console.error('Ошибка при загрузке городов:', error);
+        setCities([]);
+        setSnackbarSeverity('error');
+        setSnackbarMessage('Не удалось загрузить города для выбранной страны.');
+        setOpenSnackbar(true);
+      });
   };
 
   const handleChange = (e) => {
@@ -182,7 +179,7 @@ function Register() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${apiBaseUrl}/register`, {
+      const response = await fetch(`${API_BASE_URL}/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -193,20 +190,20 @@ function Register() {
           user_surname: formData.user_surname,
           user_name: formData.user_name,
           user_patronymic: formData.user_patronymic,
-          age: formData.age,
-          country: formData.country,
-          city: formData.city,
+          age: Number(formData.age),
+          country: Number(formData.country),
+          city: Number(formData.city),
         }),
       });
 
       setLoading(false);
       if (response.ok) {
         setSnackbarSeverity('success');
-        setSnackbarMessage('На вашу электронную почту было отправлено письмо для подтверждения.');
+        setSnackbarMessage('Регистрация прошла успешно. Сейчас можно войти в систему.');
         setOpenSnackbar(true);
         setTimeout(() => {
           navigate('/login');
-        }, 5000);
+        }, 2000);
       } else {
         const errorData = await response.json();
         setSnackbarSeverity('error');
@@ -308,26 +305,49 @@ function Register() {
               required
             />
 
-            <CustomSelect
-              label="Страна"
-              value={formData.country}
-              onChange={handleCountryChange}
-              options={countries}
-              icon={PublicIcon}
-              error={errors.country}
-              placeholder="Выберите вашу страну"
-            />
+            <FormControl fullWidth error={!!errors.country} sx={{ mb: 2.5 }}>
+              <InputLabel id="register-country-label">Страна</InputLabel>
+              <Select
+                labelId="register-country-label"
+                label="Страна"
+                value={formData.country}
+                onChange={handleCountryChange}
+                disabled={countriesLoading}
+              >
+                <MenuItem value="">
+                  <em>{countriesLoading ? 'Загрузка…' : 'Выберите страну'}</em>
+                </MenuItem>
+                {countries.map((c) => (
+                  <MenuItem key={c.id} value={String(c.id)}>
+                    {c.name}
+                  </MenuItem>
+                ))}
+              </Select>
+              {errors.country ? <FormHelperText>{errors.country}</FormHelperText> : null}
+            </FormControl>
 
-            <CustomSelect
-              label="Город"
-              value={formData.city}
-              onChange={(e) => handleChange({ target: { name: 'city', value: e.target.value } })}
-              options={cities}
-              icon={LocationCityIcon}
-              disabled={!formData.country}
-              error={errors.city}
-              placeholder="Выберите ваш город"
-            />
+            <FormControl fullWidth error={!!errors.city} sx={{ mb: 2.5 }}>
+              <InputLabel id="register-city-label">Город</InputLabel>
+              <Select
+                labelId="register-city-label"
+                label="Город"
+                value={formData.city}
+                onChange={(e) =>
+                  handleChange({ target: { name: 'city', value: e.target.value } })
+                }
+                disabled={!formData.country}
+              >
+                <MenuItem value="">
+                  <em>{formData.country ? 'Выберите город' : 'Сначала выберите страну'}</em>
+                </MenuItem>
+                {cities.map((c) => (
+                  <MenuItem key={c.id} value={String(c.id)}>
+                    {c.name}
+                  </MenuItem>
+                ))}
+              </Select>
+              {errors.city ? <FormHelperText>{errors.city}</FormHelperText> : null}
+            </FormControl>
 
             <button 
               type="submit" 

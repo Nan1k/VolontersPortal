@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Grid, Container, Typography, CircularProgress, useMediaQuery, useTheme } from '@mui/material';
 import EventFilters from '../Filters/EventFilters';
 import EventMap from '../Map/EventMap';
@@ -6,7 +6,15 @@ import EventCard from '../EventCards/EventCard';
 import axios from 'axios';
 import EventIcon from '@mui/icons-material/Event';
 
-const apiBaseUrl = process.env.REACT_APP_API_BASE_URL;
+import { API_BASE_URL } from '../../config';
+
+const emptyFilters = {
+  country: [],
+  city: [],
+  category: [],
+  fromDate: '',
+  toDate: '',
+};
 
 const VolunteerEvents = () => {
   const theme = useTheme();
@@ -22,18 +30,44 @@ const VolunteerEvents = () => {
   };
 
   const [volunteerEvents, setVolunteerEvents] = useState([]);
-  const [filteredEvents, setFilteredEvents] = useState([]);
+  const [filters, setFilters] = useState(emptyFilters);
   const [loading, setLoading] = useState(true);
+
+  const filterOptions = useMemo(() => {
+    const countries = [...new Set(volunteerEvents.map((e) => e.country).filter(Boolean))].sort();
+    const cities = [...new Set(volunteerEvents.map((e) => e.city).filter(Boolean))].sort();
+    const categories = [...new Set(volunteerEvents.map((e) => e.category).filter(Boolean))].sort();
+    return { country: countries, city: cities, category: categories };
+  }, [volunteerEvents]);
+
+  const filteredEvents = useMemo(() => {
+    return volunteerEvents.filter((event) => {
+      const matchCountry = filters.country.length
+        ? filters.country.includes(event.country)
+        : true;
+      const matchCity = filters.city.length ? filters.city.includes(event.city) : true;
+      const matchCategory = filters.category.length
+        ? filters.category.includes(event.category)
+        : true;
+      const matchFromDate = filters.fromDate
+        ? new Date(event.startDate) >= new Date(filters.fromDate)
+        : true;
+      const matchToDate = filters.toDate
+        ? new Date(event.endDate) <= new Date(`${filters.toDate}T23:59:59`)
+        : true;
+      return matchCountry && matchCity && matchCategory && matchFromDate && matchToDate;
+    });
+  }, [volunteerEvents, filters]);
 
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const response = await axios.get(`${apiBaseUrl}/my-events/`, {
+        const response = await axios.get(`${API_BASE_URL}/my-events/`, {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
         });
-        const eventData = response.data.map(event => ({
+        const eventData = (response.data || []).map((event) => ({
           id: event.event_id,
           name: event.event_name,
           description: event.full_description,
@@ -51,8 +85,7 @@ const VolunteerEvents = () => {
           latitude: event.latitude,
           longitude: event.longitude,
         }));
-        setVolunteerEvents(eventData || []);
-        setFilteredEvents(eventData);
+        setVolunteerEvents(eventData);
         setLoading(false);
       } catch (error) {
         console.error('Ошибка при загрузке мероприятий:', error.response?.data || error.message);
@@ -61,19 +94,6 @@ const VolunteerEvents = () => {
     };
     fetchEvents();
   }, []);
-
-  const handleFilterChange = (filters) => {
-    console.log('Filter change:', filters);
-    const filtered = volunteerEvents.filter((event) => {
-      const matchCountry = filters.country?.length ? filters.country.includes(event.country) : true;
-      const matchCity = filters.city?.length ? filters.city.includes(event.city) : true;
-      const matchCategory = filters.category?.length ? filters.category.includes(event.category) : true;
-      const matchFromDate = filters.fromDate ? new Date(event.startDate) >= new Date(filters.fromDate) : true;
-      const matchToDate = filters.toDate ? new Date(event.endDate) <= new Date(filters.toDate) : true;
-      return matchCountry && matchCity && matchCategory && matchFromDate && matchToDate;
-    });
-    setFilteredEvents(filtered);
-  };
 
   if (loading) {
     return (
@@ -85,7 +105,6 @@ const VolunteerEvents = () => {
 
   return (
     <Container maxWidth="xl" sx={{ py: isMobile ? 2 : 4 }}>
-      {/* Hero секция */}
       <Box
         sx={{
           background: `linear-gradient(135deg, ${palette.gradientStart}, ${palette.gradientEnd})`,
@@ -105,11 +124,15 @@ const VolunteerEvents = () => {
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={3}>
-          <EventFilters onFilterChange={handleFilterChange} />
+          <EventFilters
+            options={filterOptions}
+            filters={filters}
+            onFiltersChange={setFilters}
+          />
         </Grid>
         <Grid item xs={12} md={9}>
           <Box sx={{ mb: 3 }}>
-            <EventMap events={filteredEvents} />
+            <EventMap events={filteredEvents} focusCityNames={filters.city} />
           </Box>
           {filteredEvents.length > 0 ? (
             <Grid container spacing={2}>

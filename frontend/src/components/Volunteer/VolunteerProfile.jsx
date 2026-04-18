@@ -17,7 +17,7 @@ import EventIcon from '@mui/icons-material/Event';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import '../../pages/globalStyless.css';
 
-const apiBaseUrl = process.env.REACT_APP_API_BASE_URL;
+import { API_BASE_URL } from '../../config';
 
 // Кастомный компонент поля ввода
 const CustomInputField = ({ label, value, onChange, name, icon: Icon, disabled, type = "text" }) => {
@@ -133,7 +133,7 @@ const VolunteerProfile = () => {
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
-        const response = await fetch(`${apiBaseUrl}/profile`, {
+        const response = await fetch(`${API_BASE_URL}/profile`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`
           }

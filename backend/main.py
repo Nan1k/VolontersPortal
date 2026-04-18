@@ -13,7 +13,7 @@ from fastapi_socketio import SocketManager
 from database import SessionLocal
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-from models import ChatMessage, Country, City, CountryCreate, CityCreate, UserMetadataCreate, UserMetadata, User, Event, Category, EventRead, UserMetadataRead, EventCreate, EventRegister, EventRegistration, UserMetadataReadForChat, UserMetadataReadProfile
+from models import ChatMessage, Country, City, CountryCreate, CityCreate, UserMetadataCreate, UserMetadata, User, Event, Category, CategoryItem, EventRead, UserMetadataRead, EventCreate, EventRegister, EventRegistration, UserMetadataReadForChat, UserMetadataReadProfile
 import ssl
 from dotenv import load_dotenv
 import os
@@ -30,9 +30,14 @@ app = FastAPI()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-origins = [
-    "*"
-]
+# С credentials=True нельзя использовать allow_origins=["*"] — браузер уберёт CORS-заголовки.
+_cors_raw = os.getenv(
+    "CORS_ORIGINS",
+    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173",
+)
+cors_origins = [o.strip() for o in _cors_raw.split(",") if o.strip()]
+if not cors_origins:
+    cors_origins = ["http://localhost:3000"]
 
 if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR)
@@ -40,7 +45,7 @@ if not os.path.exists(UPLOAD_DIR):
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=origins,
+    allow_origins=cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -137,7 +142,7 @@ def register_on_event(event: EventRegister, db: Session = Depends(get_db), token
     return {"message": "Запись прошла успешно"}
 
 @app.post("/events/")
-def create_event(event: EventCreate, db: Session = Depends(get_session_local), token: str = Depends(oauth2_scheme)):
+def create_event(event: EventCreate, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
     # Получаем текущего пользователя
     current_user = get_current_user(token, db)
     if not current_user:
@@ -162,13 +167,22 @@ def create_event(event: EventCreate, db: Session = Depends(get_session_local), t
         db.commit()  # Сохраняем категорию в базе данных
         db.refresh(category)  # Получаем присвоенный category_id
 
+    try:
+        start_d = datetime.strptime(event.start_date[:10], "%Y-%m-%d")
+        end_d = datetime.strptime(event.end_date[:10], "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Неверный формат даты. Используйте YYYY-MM-DD (как в поле даты в форме).",
+        )
+
     # Создаем запись в таблице event
     db_event = Event(
         event_name=event.event_name,
         short_description=event.short_description,
         full_description=event.full_description,
-        start_date=datetime.strptime(event.start_date, '%Y-%m-%d'),
-        end_date=datetime.strptime(event.end_date, '%Y-%m-%d'),
+        start_date=start_d,
+        end_date=end_d,
         country_id=user_metadata.country_id, # Получать страну и город теперь нужно исходя из координат метки
         city_id=user_metadata.city_id,       # Получать страну и город теперь нужно исходя из координат метки
         category_id=category.category_id,  # Используем ID категории
@@ -391,7 +405,9 @@ def create_user_metadata(db: Session, user_metadata: UserMetadataCreate):
         hashed_password=hashed_password,
         age=user_metadata.age,
         country_id=user_metadata.country,
-        city_id=user_metadata.city)
+        city_id=user_metadata.city,
+        isActive=True,
+    )
 
     db.add(db_user_metadata)
     db.commit()
@@ -404,12 +420,8 @@ def register_user(user_metadata: UserMetadataCreate, db: Session = Depends(get_s
     if db_user_metadata:
         raise HTTPException(status_code=400, detail="Такой email уже зарегистрирован")
     create_user_metadata(db=db, user_metadata=user_metadata)
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user_metadata.username}, expires_delta=access_token_expires
-    )
-    SendEmailVerify.sendVerify(access_token, user_metadata.username)
-    return {"message": "Регистрация успешна! Пожалуйста, подтвердите свой email перед входом."}
+    # Подтверждение по email отключено — аккаунт сразу активен (isActive в create_user_metadata).
+    return {"message": "Регистрация успешна. Можно войти в систему."}
 
 class SendEmailVerify:
     
@@ -457,16 +469,10 @@ class SendEmailVerify:
 
 def authenticate_user(email: str, password: str, db: Session):
     user = db.query(User).filter(User.email == email).first()
-    db_user_metadata = get_user_by_email(db, email=email)
     if not user:
         return False
     if not pwd_context.verify(password, user.hashed_password):
         return False
-    if not db_user_metadata.isActive:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Аккаунт не активирован. Пожалуйста, подтвердите ваш email.",
-        )
     return user
 
 # Create access token
@@ -548,6 +554,33 @@ async def verify_user_token(token: str, db: Session = Depends(get_db)):
 def read_countries(db: Session = Depends(get_db)):
     return db.query(Country).all()
 
+
+REWARD_SUGGESTIONS = [
+    "Грамота",
+    "Благодарность",
+    "Сертификат участника",
+    "Сувениры",
+    "Баллы на портале",
+    "Диплом",
+]
+
+
+@app.get("/categories/", response_model=List[CategoryItem])
+def list_categories(db: Session = Depends(get_db)):
+    return db.query(Category).order_by(Category.category_name).all()
+
+
+@app.get("/event-form-reference/")
+def event_form_reference(db: Session = Depends(get_db)):
+    cats = db.query(Category).order_by(Category.category_name).all()
+    return {
+        "categories": [
+            {"category_id": c.category_id, "category_name": c.category_name} for c in cats
+        ],
+        "reward_suggestions": REWARD_SUGGESTIONS,
+    }
+
+
 @app.get("/cities/{country_id}", response_model=list[CityCreate])
 def read_cities(country_id: int, db: Session = Depends(get_db)):
     return db.query(City).filter(City.country_id == country_id).all()
@@ -608,7 +641,8 @@ async def get_chat_history(
     return chat_history_response
 
 
-socket_manager = SocketManager(app=app, cors_allowed_origins=[], mount_location='/socket.io')
+# mount_location='/socket.io' + внутренний socket.io давали URL /socket.io/socket.io/ — клиент шёл на /socket.io/ → 404.
+socket_manager = SocketManager(app=app, mount_location="/ws", cors_allowed_origins="*")
 
 # Словарь для хранения соединений пользователей
 user_connections = {}

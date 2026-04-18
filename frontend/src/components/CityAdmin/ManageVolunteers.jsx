@@ -38,7 +38,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import EmailIcon from '@mui/icons-material/Email';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 
-const apiBaseUrl = process.env.REACT_APP_API_BASE_URL;
+import { API_BASE_URL } from '../../config';
 
 const ManageVolunteers = () => {
   const theme = useTheme();
@@ -77,7 +77,7 @@ const ManageVolunteers = () => {
   const fetchVolunteers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${apiBaseUrl}/users/`, {
+      const response = await axios.get(`${API_BASE_URL}/users/`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -106,7 +106,7 @@ const ManageVolunteers = () => {
   const handleBlock = async (id) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`${apiBaseUrl}/users/block/${id}`, {}, {
+      await axios.put(`${API_BASE_URL}/users/block/${id}`, {}, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -131,7 +131,7 @@ const ManageVolunteers = () => {
   const handleUnblock = async (id) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`${apiBaseUrl}/users/unblock/${id}`, {}, {
+      await axios.put(`${API_BASE_URL}/users/unblock/${id}`, {}, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -153,7 +153,7 @@ const ManageVolunteers = () => {
   const handleDelete = async () => {
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`${apiBaseUrl}/users/${selectedVolunteer.user_metadata_id}`, {
+      await axios.delete(`${API_BASE_URL}/users/${selectedVolunteer.user_metadata_id}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },

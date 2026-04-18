@@ -17,8 +17,7 @@ import EventDetailsPage from './pages/EventDetailsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import ChatPage from './pages/ChatPage';
 import { ThemeProvider } from './components/Header/ThemeContext';
-
-const apiBaseUrl = process.env.REACT_APP_API_BASE_URL;
+import { API_BASE_URL, SOCKET_PATH } from './config';
 
 const App = () => {
   const [userRole, setUserRole] = useState(null);
@@ -27,8 +26,10 @@ const App = () => {
   
   useEffect(() => {
     const token = localStorage.getItem('token');
-    const newSocket = io(process.env.REACT_APP_API_BASE_URL, {
-      query: { token }
+    const newSocket = io(API_BASE_URL, {
+      path: SOCKET_PATH,
+      transports: ['websocket', 'polling'],
+      ...(token ? { query: { token } } : {}),
     });
     setSocket(newSocket);
 

@@ -12,7 +12,6 @@ import {
   Divider,
   useMediaQuery,
   Fade,
-  Slider,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -23,19 +22,24 @@ import CategoryIcon from '@mui/icons-material/Category';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import { useTheme } from '@mui/material/styles';
 
-const filterOptions = {
-  country: ["Россия", "США", "Канада", "Германия", "Франция", "Китай"],
-  region: ["Центральный федеральный округ", "Приволжский федеральный округ", "Северо-Западный федеральный округ", "Уральский федеральный округ", "Южный федеральный округ"],
-  city: ["Москва", "Санкт-Петербург", "Нью-Йорк", "Торонто", "Лондон", "Берлин"],
-  category: ["Спорт", "Культура", "Наука", "Образование", "Экология", "Медицина"],
-};
+const SECTIONS = [
+  { key: 'country', title: 'Страна' },
+  { key: 'city', title: 'Город' },
+  { key: 'category', title: 'Категория' },
+];
 
-function EventFilters({ onFilterChange, initialFilters = {} }) {
+const defaultOptions = { country: [], city: [], category: [] };
+
+function EventFilters({ options = defaultOptions, filters, onFiltersChange }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const merged = {
+    country: options.country || [],
+    city: options.city || [],
+    category: options.category || [],
+  };
 
   const palette = {
-    pageBg: '#f5f7fa',
     cardBg: '#ffffff',
     border: '#e8edf2',
     textPrimary: '#1a1a2e',
@@ -44,94 +48,58 @@ function EventFilters({ onFilterChange, initialFilters = {} }) {
     accentDark: '#8b5cf6',
     accentSoft: '#fff5f0',
     error: '#dc3545',
-    warning: '#ffc107',
-    success: '#28a745',
   };
-
-  const [filters, setFilters] = useState({
-    country: initialFilters.country || [],
-    region: initialFilters.region || [],
-    city: initialFilters.city || [],
-    category: initialFilters.category || [],
-  });
 
   const [open, setOpen] = useState({
     country: false,
-    region: false,
     city: false,
     category: false,
   });
 
-  const [dateRange, setDateRange] = useState({
-    fromDate: initialFilters.fromDate || '',
-    toDate: initialFilters.toDate || ''
-  });
-
   const getActiveFiltersCount = () => {
-    let count = 0;
-    Object.keys(filters).forEach(key => {
-      count += filters[key].length;
-    });
-    if (dateRange.fromDate) count++;
-    if (dateRange.toDate) count++;
+    let count =
+      (filters.country?.length || 0) +
+      (filters.city?.length || 0) +
+      (filters.category?.length || 0);
+    if (filters.fromDate) count++;
+    if (filters.toDate) count++;
     return count;
   };
 
-  const handleFilterChange = () => {
-    onFilterChange({
+  const handleSelect = (filterKey, value) => () => {
+    const prev = filters[filterKey] || [];
+    const nextVals = prev.includes(value)
+      ? prev.filter((item) => item !== value)
+      : [...prev, value];
+    onFiltersChange({
       ...filters,
-      fromDate: dateRange.fromDate,
-      toDate: dateRange.toDate,
+      [filterKey]: nextVals,
     });
-  };
-
-  const handleSelect = (filterType, value) => () => {
-    setFilters((prev) => ({
-      ...prev,
-      [filterType]: prev[filterType].includes(value)
-        ? prev[filterType].filter(item => item !== value)
-        : [...prev[filterType], value],
-    }));
   };
 
   const handleDateChange = (e) => {
-    setDateRange((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
+    const { name, value } = e.target;
+    onFiltersChange({
+      ...filters,
+      [name]: value,
+    });
   };
 
   const handleClearAll = () => {
-    setFilters({
+    onFiltersChange({
       country: [],
-      region: [],
       city: [],
       category: [],
+      fromDate: '',
+      toDate: '',
     });
-    setDateRange({ fromDate: '', toDate: '' });
   };
 
-  const getFilterIcon = (filterType) => {
-    switch(filterType) {
-      case 'country':
-      case 'region':
-      case 'city':
-        return <LocationOnIcon sx={{ fontSize: 20, color: palette.accent }} />;
-      case 'category':
-        return <CategoryIcon sx={{ fontSize: 20, color: palette.accent }} />;
-      default:
-        return null;
+  const getFilterIcon = (filterKey) => {
+    if (filterKey === 'category') {
+      return <CategoryIcon sx={{ fontSize: 20, color: palette.accent }} />;
     }
-  };
-
-  const getFilterTitle = (filterType) => {
-    switch(filterType) {
-      case 'country': return 'Страна';
-      case 'region': return 'Регион';
-      case 'city': return 'Город';
-      case 'category': return 'Категория';
-      default: return '';
-    }
+    return <LocationOnIcon sx={{ fontSize: 20, color: palette.accent }} />;
   };
 
   return (
@@ -146,7 +114,6 @@ function EventFilters({ onFilterChange, initialFilters = {} }) {
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.06)',
         }}
       >
-        {/* Заголовок */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <FilterListIcon sx={{ color: palette.accent }} />
@@ -184,102 +151,116 @@ function EventFilters({ onFilterChange, initialFilters = {} }) {
 
         <Divider sx={{ mb: 2, borderColor: palette.border }} />
 
-        {/* Фильтры */}
-        {Object.keys(filterOptions).map((filterType) => (
-          <Box key={filterType} sx={{ mb: 2 }}>
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                p: 1.5,
-                borderRadius: 2,
-                cursor: 'pointer',
-                backgroundColor: open[filterType] ? palette.accentSoft : 'transparent',
-                transition: 'background-color 0.2s',
-                '&:hover': {
-                  backgroundColor: palette.accentSoft,
-                },
-              }}
-              onClick={() => setOpen((prev) => ({ ...prev, [filterType]: !prev[filterType] }))}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                {getFilterIcon(filterType)}
-                <Typography variant="body1" sx={{ fontWeight: 600, color: palette.textPrimary }}>
-                  {getFilterTitle(filterType)}
-                </Typography>
-                {filters[filterType].length > 0 && (
-                  <Chip
-                    label={filters[filterType].length}
-                    size="small"
-                    sx={{
-                      height: 20,
-                      fontSize: '0.7rem',
-                      backgroundColor: palette.accent,
-                      color: 'white',
-                    }}
-                  />
-                )}
-              </Box>
-              <IconButton size="small">
-                {open[filterType] ?
-                  <ExpandLessIcon sx={{ color: palette.accent }} /> :
-                  <ExpandMoreIcon sx={{ color: palette.textSecondary }} />
-                }
-              </IconButton>
-            </Box>
-            {open[filterType] && (
-              <Box sx={{
-                maxHeight: 250,
-                overflowY: 'auto',
-                mt: 1,
-                p: 1.5,
-                borderRadius: 2,
-                backgroundColor: palette.accentSoft,
-              }}>
-                {filterOptions[filterType].map((item) => (
-                  <Box
-                    key={item}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      mb: 1,
-                      cursor: 'pointer',
-                      p: 0.5,
-                      borderRadius: 1,
-                      transition: 'background-color 0.2s',
-                      '&:hover': {
-                        backgroundColor: palette.border,
-                      },
-                    }}
-                    onClick={handleSelect(filterType, item)}
-                  >
-                    <Checkbox
-                      checked={filters[filterType].includes(item)}
+        {SECTIONS.map(({ key, title }) => {
+          const items = merged[key] || [];
+          return (
+            <Box key={key} sx={{ mb: 2 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  p: 1.5,
+                  borderRadius: 2,
+                  cursor: 'pointer',
+                  backgroundColor: open[key] ? palette.accentSoft : 'transparent',
+                  transition: 'background-color 0.2s',
+                  '&:hover': { backgroundColor: palette.accentSoft },
+                }}
+                onClick={() => setOpen((prev) => ({ ...prev, [key]: !prev[key] }))}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  {getFilterIcon(key)}
+                  <Typography variant="body1" sx={{ fontWeight: 600, color: palette.textPrimary }}>
+                    {title}
+                  </Typography>
+                  {(filters[key] || []).length > 0 && (
+                    <Chip
+                      label={(filters[key] || []).length}
+                      size="small"
                       sx={{
-                        color: palette.accent,
-                        '&.Mui-checked': {
-                          color: palette.accent,
-                        },
+                        height: 20,
+                        fontSize: '0.7rem',
+                        backgroundColor: palette.accent,
+                        color: 'white',
                       }}
                     />
-                    <ListItemText
-                      primary={item}
-                      primaryTypographyProps={{
-                        sx: { color: palette.textPrimary, fontSize: '0.9rem' }
-                      }}
-                    />
-                  </Box>
-                ))}
+                  )}
+                </Box>
+                <IconButton size="small">
+                  {open[key] ? (
+                    <ExpandLessIcon sx={{ color: palette.accent }} />
+                  ) : (
+                    <ExpandMoreIcon sx={{ color: palette.textSecondary }} />
+                  )}
+                </IconButton>
               </Box>
-            )}
-          </Box>
-        ))}
+              {open[key] && (
+                <Box
+                  sx={{
+                    maxHeight: 250,
+                    overflowY: 'auto',
+                    mt: 1,
+                    p: 1.5,
+                    borderRadius: 2,
+                    backgroundColor: palette.accentSoft,
+                  }}
+                >
+                  {items.length === 0 ? (
+                    <Typography variant="body2" sx={{ color: palette.textSecondary, px: 1 }}>
+                      Нет значений — появятся после загрузки мероприятий с этим полем
+                    </Typography>
+                  ) : (
+                    items.map((item) => (
+                      <Box
+                        key={item}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          mb: 1,
+                          cursor: 'pointer',
+                          p: 0.5,
+                          borderRadius: 1,
+                          transition: 'background-color 0.2s',
+                          '&:hover': { backgroundColor: palette.border },
+                        }}
+                        onClick={handleSelect(key, item)}
+                      >
+                        <Checkbox
+                          checked={(filters[key] || []).includes(item)}
+                          sx={{
+                            color: palette.accent,
+                            '&.Mui-checked': { color: palette.accent },
+                          }}
+                        />
+                        <ListItemText
+                          primary={item}
+                          primaryTypographyProps={{
+                            sx: { color: palette.textPrimary, fontSize: '0.9rem' },
+                          }}
+                        />
+                      </Box>
+                    ))
+                  )}
+                </Box>
+              )}
+            </Box>
+          );
+        })}
 
         <Divider sx={{ my: 2, borderColor: palette.border }} />
 
-        {/* Дата */}
-        <Typography variant="subtitle2" sx={{ mb: 1.5, color: palette.textPrimary, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography
+          variant="subtitle2"
+          sx={{
+            mb: 1.5,
+            color: palette.textPrimary,
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+          }}
+        >
           <CalendarTodayIcon sx={{ fontSize: 20, color: palette.accent }} />
           Период проведения
         </Typography>
@@ -288,7 +269,7 @@ function EventFilters({ onFilterChange, initialFilters = {} }) {
             label="Дата от"
             type="date"
             name="fromDate"
-            value={dateRange.fromDate}
+            value={filters.fromDate || ''}
             onChange={handleDateChange}
             InputLabelProps={{ shrink: true }}
             fullWidth
@@ -306,7 +287,7 @@ function EventFilters({ onFilterChange, initialFilters = {} }) {
             label="Дата до"
             type="date"
             name="toDate"
-            value={dateRange.toDate}
+            value={filters.toDate || ''}
             onChange={handleDateChange}
             InputLabelProps={{ shrink: true }}
             fullWidth
@@ -322,72 +303,51 @@ function EventFilters({ onFilterChange, initialFilters = {} }) {
           />
         </Box>
 
-        {/* Активные фильтры */}
         {getActiveFiltersCount() > 0 && (
-          <Box sx={{ mb: 3 }}>
+          <Box sx={{ mb: 2 }}>
             <Typography variant="caption" sx={{ color: palette.textSecondary, mb: 1, display: 'block' }}>
-              Активные фильтры:
+              Активные фильтры (применяются сразу):
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              {Object.entries(filters).map(([key, values]) =>
-                values.map((value) => (
+              {['country', 'city', 'category'].map((key) =>
+                (filters[key] || []).map((value) => (
                   <Chip
                     key={`${key}-${value}`}
                     label={value}
                     size="small"
-                    onDelete={() => handleSelect(key, value)()}
+                    onDelete={() =>
+                      onFiltersChange({
+                        ...filters,
+                        [key]: (filters[key] || []).filter((v) => v !== value),
+                      })
+                    }
                     sx={{
                       backgroundColor: palette.accentSoft,
                       color: palette.accent,
-                      '& .MuiChip-deleteIcon': {
-                        color: palette.accent,
-                      },
+                      '& .MuiChip-deleteIcon': { color: palette.accent },
                     }}
                   />
                 ))
               )}
-              {dateRange.fromDate && (
+              {filters.fromDate && (
                 <Chip
-                  label={`От: ${dateRange.fromDate}`}
+                  label={`От: ${filters.fromDate}`}
                   size="small"
-                  onDelete={() => setDateRange(prev => ({ ...prev, fromDate: '' }))}
-                  sx={{
-                    backgroundColor: palette.accentSoft,
-                    color: palette.accent,
-                  }}
+                  onDelete={() => onFiltersChange({ ...filters, fromDate: '' })}
+                  sx={{ backgroundColor: palette.accentSoft, color: palette.accent }}
                 />
               )}
-              {dateRange.toDate && (
+              {filters.toDate && (
                 <Chip
-                  label={`До: ${dateRange.toDate}`}
+                  label={`До: ${filters.toDate}`}
                   size="small"
-                  onDelete={() => setDateRange(prev => ({ ...prev, toDate: '' }))}
-                  sx={{
-                    backgroundColor: palette.accentSoft,
-                    color: palette.accent,
-                  }}
+                  onDelete={() => onFiltersChange({ ...filters, toDate: '' })}
+                  sx={{ backgroundColor: palette.accentSoft, color: palette.accent }}
                 />
               )}
             </Box>
           </Box>
         )}
-
-        {/* Кнопка применения */}
-        <Button
-          variant="contained"
-          onClick={handleFilterChange}
-          fullWidth
-          sx={{
-            borderRadius: 2,
-            py: 1.5,
-            background: `linear-gradient(135deg, ${palette.gradientStart || palette.accent}, ${palette.gradientEnd || palette.accentDark})`,
-            '&:hover': { background: `linear-gradient(135deg, ${palette.accentDark}, ${palette.accent})` },
-            textTransform: 'none',
-            fontWeight: 600,
-          }}
-        >
-          Применить фильтры
-        </Button>
       </Paper>
     </Fade>
   );

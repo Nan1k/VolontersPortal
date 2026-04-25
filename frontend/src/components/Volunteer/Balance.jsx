@@ -1,7 +1,6 @@
 import React from 'react';
-import { Typography, Paper, Box, Avatar, useMediaQuery, useTheme } from '@mui/material';
+import { Typography, Paper, Box, useMediaQuery, useTheme } from '@mui/material';
 import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
-import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 
 const Balance = ({ coins }) => {
   const theme = useTheme();

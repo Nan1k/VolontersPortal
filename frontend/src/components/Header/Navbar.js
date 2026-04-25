@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import axios from 'axios';
 import logoImage from './logo192.png';
 import {
   AppBar,
@@ -34,6 +35,7 @@ import { useAuth } from '../Auth/AuthContext';
 import './Navbar.css';
 import './themes.css';
 import '../../pages/globalStyless.css';
+import { API_BASE_URL } from '../../config';
 
 const Navbar = ({ socket }) => {
   const { isAuthenticated, logout } = useAuth();
@@ -47,8 +49,35 @@ const Navbar = ({ socket }) => {
   const themeObject = useTheme();
   const isMobile = useMediaQuery(themeObject.breakpoints.down('md'));
   const navigate = useNavigate();
+  const location = useLocation();
   const token = localStorage.getItem('token');
   const isLoggedIn = !!token;
+  const [balancePoints, setBalancePoints] = useState(null);
+
+  const fetchBalance = React.useCallback(async () => {
+    if (!token) {
+      setBalancePoints(null);
+      return;
+    }
+    try {
+      const { data } = await axios.get(`${API_BASE_URL}/volunteer/balance`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setBalancePoints(typeof data?.balance === 'number' ? data.balance : null);
+    } catch {
+      setBalancePoints(null);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    fetchBalance();
+  }, [fetchBalance, location.pathname]);
+
+  useEffect(() => {
+    const onBalanceChanged = () => fetchBalance();
+    window.addEventListener('volunteer-balance-changed', onBalanceChanged);
+    return () => window.removeEventListener('volunteer-balance-changed', onBalanceChanged);
+  }, [fetchBalance]);
 
   const palette = {
     light: {
@@ -152,10 +181,12 @@ const Navbar = ({ socket }) => {
         {!isMobile && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             {/* Баланс - с подписью */}
-            <Tooltip title="Ваш баланс баллов">
+            <Tooltip title="Баланс баллов и мерч">
               <Button
                 color="inherit"
                 aria-label="balance"
+                component={Link}
+                to="/balance"
                 sx={{
                   py: 1,
                   px: 2,
@@ -172,9 +203,10 @@ const Navbar = ({ socket }) => {
                 }}
                 startIcon={
                   <Badge
-                    badgeContent={1500}
+                    badgeContent={balancePoints != null ? balancePoints : 0}
+                    invisible={balancePoints === null}
                     color="secondary"
-                    max={10000}
+                    max={99999}
                     showZero
                     anchorOrigin={{
                       vertical: 'bottom',
@@ -436,8 +468,9 @@ const Navbar = ({ socket }) => {
                 </Badge>
                 Чат
               </MenuItem>
-              <MenuItem onClick={handleMobileMenuClose}>
-                <AttachMoneyIcon sx={{ mr: 1, color: '#bebebe' }} /> Баланс: 1500
+              <MenuItem component={Link} to="/balance" onClick={handleMobileMenuClose}>
+                <AttachMoneyIcon sx={{ mr: 1, color: '#bebebe' }} />
+                Баланс: {balancePoints != null ? balancePoints : '—'}
               </MenuItem>
               <Divider sx={{ backgroundColor: theme === 'light' ? '#e8edf2' : 'rgba(255,255,255,0.1)' }} />
               {isLoggedIn ? (

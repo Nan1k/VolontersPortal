@@ -152,8 +152,8 @@ function Register() {
     
     if (!formData.hashed_password) {
       newErrors.hashed_password = 'Введите пароль';
-    } else if (formData.hashed_password.length < 6) {
-      newErrors.hashed_password = 'Пароль должен содержать минимум 6 символов';
+    } else if (formData.hashed_password.length < 8) {
+      newErrors.hashed_password = 'Пароль должен содержать минимум 8 символов';
     }
     
     if (!formData.user_surname) newErrors.user_surname = 'Введите фамилию';
@@ -206,8 +206,11 @@ function Register() {
         }, 2000);
       } else {
         const errorData = await response.json();
+        const backendValidation = Array.isArray(errorData?.detail)
+          ? errorData.detail.map((item) => item?.msg).filter(Boolean).join('; ')
+          : null;
         setSnackbarSeverity('error');
-        setSnackbarMessage(errorData.detail || 'Ошибка при регистрации!');
+        setSnackbarMessage(backendValidation || errorData.detail || 'Ошибка при регистрации!');
         setOpenSnackbar(true);
       }
     } catch (error) {
@@ -252,7 +255,7 @@ function Register() {
               value={formData.hashed_password}
               onChange={handleChange}
               icon={LockIcon}
-              placeholder="Минимум 6 символов"
+              placeholder="Минимум 8 символов"
               error={errors.hashed_password}
               required
             />

@@ -44,6 +44,11 @@ class UserMetadata(Base):
     country = relationship("Country", back_populates="users")
     city = relationship("City", back_populates="users")
 
+    # Накопленные волонтёрские баллы (тратятся в магазине мерча)
+    volunteer_points = Column(Integer, nullable=False, default=10000, server_default="10000")
+
+    merch_redemptions = relationship("MerchRedemption", back_populates="user")
+
     __table_args__ = (
         UniqueConstraint('email', name='uq_user_metadata_email'),
         UniqueConstraint('hashed_password', name='uq_user_metadata_hashed_password'),
@@ -205,6 +210,29 @@ class UserVolunteerOrg(Base):
     class Config:
         orm_mode = True
 
+
+class MerchRedemption(Base):
+    """История обмена баллов на мерч"""
+    __tablename__ = "merch_redemption"
+
+    redemption_id = Column(Integer, primary_key=True, autoincrement=True)
+    user_metadata_id = Column(
+        Integer,
+        ForeignKey("user_metadata.user_metadata_id", onupdate="CASCADE", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    item_id = Column(String(64), nullable=False)
+    item_title = Column(String(200), nullable=False)
+    points_cost = Column(Integer, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("UserMetadata", back_populates="merch_redemptions")
+
+    class Config:
+        orm_mode = True
+
+
 # PYDANTIC
 
 class UserAvatarUpdate(BaseModel):
@@ -251,6 +279,44 @@ class UserMetadataReadProfile(BaseModel):
     city_id: int
     country_name: Optional[str]
     city_name: Optional[str]
+    volunteer_points: int = 0
+
+    class Config:
+        orm_mode = True
+
+
+class VolunteerBalanceOut(BaseModel):
+    balance: int
+
+    class Config:
+        orm_mode = True
+
+
+class MerchCatalogItemOut(BaseModel):
+    id: str
+    title: str
+    description: str
+    price_points: int
+
+    class Config:
+        orm_mode = True
+
+
+class MerchRedeemRequest(BaseModel):
+    item_id: str = Field(..., min_length=1, max_length=64)
+
+
+class MerchRedeemResponse(BaseModel):
+    message: str
+    new_balance: int
+
+
+class MerchRedemptionOut(BaseModel):
+    redemption_id: int
+    item_id: str
+    item_title: str
+    points_cost: int
+    created_at: datetime
 
     class Config:
         orm_mode = True

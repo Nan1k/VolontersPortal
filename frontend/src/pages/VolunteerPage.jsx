@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 import { Box, Drawer, List, ListItemText, Typography, IconButton, BottomNavigation, BottomNavigationAction, useMediaQuery, useTheme, ListItemButton, ListItemIcon, Container } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
@@ -12,21 +13,45 @@ import Friends from '../components/Volunteer/Friends';
 import Groups from '../components/Volunteer/Groups';
 import VolunteerAchievements from '../components/Volunteer/VolunteerAchievements';
 import VolunteerEvents from '../components/Volunteer/VolunteerEvents';
+import { API_BASE_URL } from '../config';
 
 const drawerWidth = 280;
 
 const friends = [{ id: 1, name: 'Анна Иванова', status: 'online', points: 1250 }];
 const groups = [{ id: 1, name: 'Эко-волонтёры', members: 45, category: 'Экология' }];
 const rank = 'Эксперт';
-const points = 2450;
 const awards = ['Золотой волонтёр', 'Лидер месяца'];
 const completedEvents = ['Эко-субботник', 'Помощь приюту'];
 
 const VolunteerPage = () => {
   const [selectedSection, setSelectedSection] = useState('profile');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [volunteerPoints, setVolunteerPoints] = useState(0);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  const fetchVolunteerBalance = useCallback(async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setVolunteerPoints(0);
+      return;
+    }
+    try {
+      const { data } = await axios.get(`${API_BASE_URL}/volunteer/balance`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setVolunteerPoints(typeof data?.balance === 'number' ? data.balance : 0);
+    } catch {
+      setVolunteerPoints(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchVolunteerBalance();
+    const onBal = () => fetchVolunteerBalance();
+    window.addEventListener('volunteer-balance-changed', onBal);
+    return () => window.removeEventListener('volunteer-balance-changed', onBal);
+  }, [fetchVolunteerBalance]);
 
   const palette = {
     accent: '#6e47c2',
@@ -44,7 +69,9 @@ const VolunteerPage = () => {
       case 'profile':
         return <VolunteerProfile />;
       case 'achievements':
-        return <VolunteerAchievements rank={rank} points={points} awards={awards} completedEvents={completedEvents} />;
+        return (
+          <VolunteerAchievements rank={rank} points={volunteerPoints} awards={awards} completedEvents={completedEvents} />
+        );
       case 'events':
         return <VolunteerEvents />;
       case 'friends':

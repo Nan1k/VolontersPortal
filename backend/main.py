@@ -13,12 +13,71 @@ from fastapi_socketio import SocketManager
 from database import SessionLocal
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-from models import ChatMessage, Country, City, CountryCreate, CityCreate, UserMetadataCreate, UserMetadata, User, Event, Category, CategoryItem, EventRead, UserMetadataRead, EventCreate, EventRegister, EventRegistration, UserMetadataReadForChat, UserMetadataReadProfile
+from models import (
+    ChatMessage,
+    Country,
+    City,
+    CountryCreate,
+    CityCreate,
+    UserMetadataCreate,
+    UserMetadata,
+    User,
+    Event,
+    Category,
+    CategoryItem,
+    EventRead,
+    UserMetadataRead,
+    EventCreate,
+    EventRegister,
+    EventRegistration,
+    UserMetadataReadForChat,
+    UserMetadataReadProfile,
+    MerchRedemption,
+    VolunteerBalanceOut,
+    MerchCatalogItemOut,
+    MerchRedeemRequest,
+    MerchRedeemResponse,
+    MerchRedemptionOut,
+)
 import ssl
 from dotenv import load_dotenv
 import os
 
 load_dotenv()
+
+# Каталог цены в баллах, списание при «заказе»
+MERCH_CATALOG = [
+    {
+        "id": "pin",
+        "title": "Значок волонтёра",
+        "description": "Металлический значок с символикой портала.",
+        "price_points": 150,
+    },
+    {
+        "id": "stickers",
+        "title": "Набор стикеров",
+        "description": "Виниловые стикеры для ноутбука или бутылки.",
+        "price_points": 220,
+    },
+    {
+        "id": "bottle",
+        "title": "Эко-бутылка",
+        "description": "Многоразовая бутылка ~750 мл.",
+        "price_points": 450,
+    },
+    {
+        "id": "tshirt",
+        "title": "Футболка",
+        "description": "Хлопок; размер уточним по контактам в профиле.",
+        "price_points": 1200,
+    },
+    {
+        "id": "hoodie",
+        "title": "Худи",
+        "description": "Толстовка с капюшоном, базовые цвета.",
+        "price_points": 2500,
+    },
+]
 
 SECRET_KEY = "your_secret_key"
 ALGORITHM = "HS256"
@@ -214,8 +273,86 @@ def get_user_profile(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
     user_metadata.country_name = db.query(Country.country_name).filter(Country.country_id == user_metadata.country_id).scalar()
     user_metadata.city_name = db.query(City.city_name).filter(City.city_id == user_metadata.city_id).scalar()
-    
+
     return user_metadata
+
+
+@app.get("/volunteer/balance", response_model=VolunteerBalanceOut)
+def get_volunteer_balance(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+):
+    current_user = get_current_user(token, db)
+    u = db.query(UserMetadata).filter(UserMetadata.user_metadata_id == current_user.user_metadata_id).first()
+    if not u:
+        raise HTTPException(status_code=404, detail="User not found")
+    balance = int(u.volunteer_points or 0)
+    return VolunteerBalanceOut(balance=balance)
+
+
+@app.get("/merch/catalog", response_model=List[MerchCatalogItemOut])
+def get_merch_catalog():
+    return [MerchCatalogItemOut(**item) for item in MERCH_CATALOG]
+
+
+@app.get("/merch/my-redemptions", response_model=List[MerchRedemptionOut])
+def get_my_merch_redemptions(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+):
+    current_user = get_current_user(token, db)
+    rows = (
+        db.query(MerchRedemption)
+        .filter(MerchRedemption.user_metadata_id == current_user.user_metadata_id)
+        .order_by(MerchRedemption.created_at.desc())
+        .limit(50)
+        .all()
+    )
+    return rows
+
+
+@app.post("/merch/redeem", response_model=MerchRedeemResponse)
+def redeem_merch(
+    body: MerchRedeemRequest,
+    db: Session = Depends(get_db),
+    token: str = Depends(oauth2_scheme),
+):
+    current_user = get_current_user(token, db)
+
+    item = next((x for x in MERCH_CATALOG if x["id"] == body.item_id), None)
+    if not item:
+        raise HTTPException(status_code=404, detail="Товар не найден")
+
+    cost = int(item["price_points"])
+    u = (
+        db.query(UserMetadata)
+        .filter(UserMetadata.user_metadata_id == current_user.user_metadata_id)
+        .with_for_update()
+        .first()
+    )
+    if not u:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    balance = int(u.volunteer_points or 0)
+    if balance < cost:
+        raise HTTPException(status_code=400, detail="Недостаточно баллов")
+
+    u.volunteer_points = balance - cost
+    redemption = MerchRedemption(
+        user_metadata_id=u.user_metadata_id,
+        item_id=item["id"],
+        item_title=item["title"],
+        points_cost=cost,
+        created_at=datetime.utcnow(),
+    )
+    db.add(redemption)
+    db.commit()
+    db.refresh(u)
+
+    return MerchRedeemResponse(
+        message="Заявка принята. С вами свяжутся для уточнения доставки.",
+        new_balance=int(u.volunteer_points or 0),
+    )
 
 @app.post("/profile/avatar/")
 async def upload_avatar(
@@ -388,6 +525,7 @@ def get_user_metadata_by_token(token: str, db: Session) -> UserMetadata:
     except JWTError as e:
         raise HTTPException(status_code=401, detail=f"Invalid authentication credentials: {str(e)}")
 
+
 def get_user_by_email(db: Session, email: str):
     return db.query(UserMetadata).filter(UserMetadata.email == email).first()
 
@@ -407,6 +545,7 @@ def create_user_metadata(db: Session, user_metadata: UserMetadataCreate):
         country_id=user_metadata.country,
         city_id=user_metadata.city,
         isActive=True,
+        volunteer_points=10000,
     )
 
     db.add(db_user_metadata)

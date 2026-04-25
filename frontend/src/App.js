@@ -16,6 +16,7 @@ import SuperUserPage from './pages/SuperUserPage';
 import EventDetailsPage from './pages/EventDetailsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import ChatPage from './pages/ChatPage';
+import BalancePage from './pages/BalancePage';
 import { ThemeProvider } from './components/Header/ThemeContext';
 import { API_BASE_URL, SOCKET_PATH } from './config';
 
@@ -120,6 +121,7 @@ const App = () => {
           <Route path="/demo/superuser" element={<SuperUserPage />} />
           <Route path="/event/:id" element={<EventDetailsPage />} />
           <Route path="/chatpage" element={<ChatPage socket={socket} />} />
+          <Route path="/balance" element={<BalancePage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </div>

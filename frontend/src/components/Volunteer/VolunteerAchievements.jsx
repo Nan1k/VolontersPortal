@@ -50,7 +50,9 @@ const VolunteerAchievements = ({ rank, points, awards, completedEvents }) => {
           <Box sx={{ p: 2, borderRadius: 2, backgroundColor: palette.accentSoft, textAlign: 'center' }}>
             <CheckCircleIcon sx={{ fontSize: 40, color: palette.success, mb: 1 }} />
             <Typography variant="body2" sx={{ color: palette.textSecondary }}>Всего баллов</Typography>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: palette.textPrimary }}>{points || 2450}</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 800, color: palette.textPrimary }}>
+              {typeof points === 'number' ? points : '—'}
+            </Typography>
           </Box>
         </Grid>
       </Grid>

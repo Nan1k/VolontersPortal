@@ -4,6 +4,9 @@ import {
   TextField,
   Button,
   Checkbox,
+  Radio,
+  RadioGroup,
+  FormControlLabel,
   ListItemText,
   Typography,
   IconButton,
@@ -66,14 +69,29 @@ function EventFilters({ options = defaultOptions, filters, onFiltersChange }) {
     return count;
   };
 
+  const isSingleSelectFilter = (filterKey) => filterKey === 'city';
+
   const handleSelect = (filterKey, value) => () => {
     const prev = filters[filterKey] || [];
-    const nextVals = prev.includes(value)
-      ? prev.filter((item) => item !== value)
-      : [...prev, value];
+    let nextVals;
+    if (isSingleSelectFilter(filterKey)) {
+      nextVals = prev.includes(value) ? [] : [value];
+    } else {
+      nextVals = prev.includes(value)
+        ? prev.filter((item) => item !== value)
+        : [...prev, value];
+    }
     onFiltersChange({
       ...filters,
       [filterKey]: nextVals,
+    });
+  };
+
+  const handleRadioSelect = (filterKey) => (event) => {
+    const { value } = event.target;
+    onFiltersChange({
+      ...filters,
+      [filterKey]: value ? [value] : [],
     });
   };
 
@@ -210,6 +228,38 @@ function EventFilters({ options = defaultOptions, filters, onFiltersChange }) {
                     <Typography variant="body2" sx={{ color: palette.textSecondary, px: 1 }}>
                       Нет значений — появятся после загрузки мероприятий с этим полем
                     </Typography>
+                  ) : isSingleSelectFilter(key) ? (
+                    <RadioGroup
+                      value={(filters[key] || [])[0] || ''}
+                      onChange={handleRadioSelect(key)}
+                    >
+                      {items.map((item) => (
+                        <FormControlLabel
+                          key={item}
+                          value={item}
+                          control={
+                            <Radio
+                              sx={{
+                                color: palette.accent,
+                                '&.Mui-checked': { color: palette.accent },
+                              }}
+                            />
+                          }
+                          label={item}
+                          sx={{
+                            mb: 0.5,
+                            px: 0.5,
+                            borderRadius: 1,
+                            transition: 'background-color 0.2s',
+                            '&:hover': { backgroundColor: palette.border },
+                            '& .MuiFormControlLabel-label': {
+                              color: palette.textPrimary,
+                              fontSize: '0.9rem',
+                            },
+                          }}
+                        />
+                      ))}
+                    </RadioGroup>
                   ) : (
                     items.map((item) => (
                       <Box

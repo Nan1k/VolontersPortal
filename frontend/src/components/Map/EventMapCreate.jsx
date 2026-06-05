@@ -42,8 +42,9 @@ function EventMapCreate({ setCoordinates }) {
   return (
     <MapContainer center={[55.751244, 37.618423]} zoom={10} style={{ height: '400px', width: '100%', borderRadius: '16px', overflow: 'hidden' }}>
       <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='Map data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+        subdomains={['a', 'b', 'c', 'd']}
+        attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>'
       />
       <LocationMarker setCoordinates={setCoordinates} />
     </MapContainer>

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Map, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
-import OSM from 'ol/source/OSM';
+import XYZ from 'ol/source/XYZ';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import { Point } from 'ol/geom';
@@ -14,6 +14,12 @@ import customMarkerImage from './marker.png';
 
 const DEFAULT_CENTER = [37.6173, 55.7558];
 const DEFAULT_ZOOM = 10;
+
+// Тайлы — картинки карты, грузятся браузером с внешнего CDN (не с вашего сервера).
+// Официальные серверы OSM (tile.openstreetmap.org / .de) часто блокируют хостинги.
+const MAP_TILE_URL =
+  'https://{a-d}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
+const MAP_ATTRIBUTION = '© OpenStreetMap contributors © CARTO';
 
 /** [lon, lat] WGS84 — имена как в фильтре / `city_name` из API. */
 const CITY_CENTER_LON_LAT = {
@@ -60,7 +66,12 @@ function EventMap({ events, focusCityNames = [] }) {
     const map = new Map({
       target: el,
       layers: [
-        new TileLayer({ source: new OSM() }),
+        new TileLayer({
+          source: new XYZ({
+            url: MAP_TILE_URL,
+            attributions: MAP_ATTRIBUTION,
+          }),
+        }),
         new VectorLayer({ source: vectorSource }),
       ],
       view: new View({

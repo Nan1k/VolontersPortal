@@ -85,7 +85,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30000
 UPLOAD_DIR = "uploads/avatars"
 
 apiBaseUrl = os.getenv('REACT_APP_API_BASE_URL')
-app = FastAPI()
+app = FastAPI(redirect_slashes=False)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -153,6 +153,7 @@ def unblock_user(user_metadata_id: int, db: Session = Depends(get_db)):
     return {"message": "Пользователь разблокирован"}
 
 @app.get("/chat-users/", response_model=List[UserMetadataReadForChat])
+@app.get("/chat-users", response_model=List[UserMetadataReadForChat])
 def read_users_chat(db: Session = Depends(get_db)):
     users = db.query(UserMetadata).all()
     
@@ -262,6 +263,7 @@ def create_event(event: EventCreate, db: Session = Depends(get_db), token: str =
     return {"message": "Мероприятие создано успешно", "event_id": db_event.event_id}
 
 @app.get("/profile/", response_model=UserMetadataReadProfile)
+@app.get("/profile", response_model=UserMetadataReadProfile)
 def get_user_profile(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     current_user = get_current_user(token, db)
     if not current_user:

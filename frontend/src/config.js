@@ -3,7 +3,7 @@
  */
 export const API_BASE_URL =
   (typeof process !== 'undefined' && process.env.REACT_APP_API_BASE_URL) ||
-  'http://localhost:8000';
+  'http://localhost:8080';
 
 /**
  * Путь Socket.IO на сервере: fastapi-socketio монтирует ASGI-приложение в /ws,

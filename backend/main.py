@@ -92,11 +92,11 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # С credentials=True нельзя использовать allow_origins=["*"] — браузер уберёт CORS-заголовки.
 _cors_raw = os.getenv(
     "CORS_ORIGINS",
-    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173",
+    "http://109.172.37.85:3080",
 )
 cors_origins = [o.strip() for o in _cors_raw.split(",") if o.strip()]
 if not cors_origins:
-    cors_origins = ["http://localhost:3000"]
+    cors_origins = ["http://109.172.37.85:3080"]
 
 if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR)
